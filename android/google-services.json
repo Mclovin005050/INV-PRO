@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "259748474267",
+    "project_id": "intricate-web-498607-t6",
+    "storage_bucket": "intricate-web-498607-t6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:259748474267:android:7ef661293ee0d650e9453e",
+        "android_client_info": {
+          "package_name": "com.example.inventory_management_system"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDvV10Hws4gc0x8kQkXcAnqnINbEV7Dllw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
