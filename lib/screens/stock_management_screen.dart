@@ -168,9 +168,9 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.05),
+            color: color.withOpacity(0.05),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.1), width: 1.5),
+            border: Border.all(color: color.withOpacity(0.1), width: 1.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,6 +205,30 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
     final qtyController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
+    Future<void> submit() async {
+      if (formKey.currentState!.validate() && selectedProduct != null) {
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+        try {
+          await _firestoreService.recordTransaction(
+            productId: selectedProduct!.id,
+            productName: selectedProduct!.name,
+            quantity: int.parse(qtyController.text),
+            type: type,
+            price: selectedProduct!.price,
+          );
+          if (navigator.canPop()) navigator.pop();
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Transaction recorded successfully'), backgroundColor: Colors.green)
+          );
+        } catch (e) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)
+          );
+        }
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -235,6 +259,8 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
                 controller: qtyController,
                 decoration: const InputDecoration(labelText: 'Quantity'),
                 keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => submit(),
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Required';
                   if (int.tryParse(v) == null || int.parse(v) <= 0) return 'Invalid quantity';
@@ -247,29 +273,7 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate() && selectedProduct != null) {
-                final messenger = ScaffoldMessenger.of(context);
-                final navigator = Navigator.of(context);
-                try {
-                  await _firestoreService.recordTransaction(
-                    productId: selectedProduct!.id,
-                    productName: selectedProduct!.name,
-                    quantity: int.parse(qtyController.text),
-                    type: type,
-                    price: selectedProduct!.price,
-                  );
-                  navigator.pop();
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Transaction recorded successfully'))
-                  );
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)
-                  );
-                }
-              }
-            },
+            onPressed: submit,
             child: const Text('Submit'),
           ),
         ],

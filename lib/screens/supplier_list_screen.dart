@@ -156,50 +156,72 @@ class _SupplierListScreenState extends State<SupplierListScreen> {
     final nameCtrl = TextEditingController(text: supplier?.name);
     final phoneCtrl = TextEditingController(text: supplier?.phone);
     final emailCtrl = TextEditingController(text: supplier?.email);
+    final formKey = GlobalKey<FormState>();
+
+    Future<void> submit() async {
+      if (formKey.currentState!.validate()) {
+        final s = Supplier(
+          id: supplier?.id ?? '',
+          name: nameCtrl.text.trim(),
+          phone: phoneCtrl.text.trim(),
+          email: emailCtrl.text.trim(),
+        );
+        
+        final messenger = ScaffoldMessenger.of(context);
+        final navigator = Navigator.of(context);
+
+        try {
+          if (isEdit) {
+            await _firestoreService.updateSupplier(s);
+          } else {
+            await _firestoreService.addSupplier(s);
+          }
+          if (navigator.canPop()) navigator.pop();
+        } catch (e) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isEdit ? 'Edit Supplier' : 'Add Supplier'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Supplier Name')),
-            const SizedBox(height: 8),
-            TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number'), keyboardType: TextInputType.phone),
-            const SizedBox(height: 8),
-            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email Address'), keyboardType: TextInputType.emailAddress),
-          ],
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameCtrl, 
+                decoration: const InputDecoration(labelText: 'Supplier Name'),
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: phoneCtrl, 
+                decoration: const InputDecoration(labelText: 'Phone Number'), 
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: emailCtrl, 
+                decoration: const InputDecoration(labelText: 'Email Address'), 
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => submit(),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.isNotEmpty) {
-                final s = Supplier(
-                  id: supplier?.id ?? '',
-                  name: nameCtrl.text,
-                  phone: phoneCtrl.text,
-                  email: emailCtrl.text,
-                );
-                
-                final messenger = ScaffoldMessenger.of(context);
-                final navigator = Navigator.of(context);
-
-                try {
-                  if (isEdit) {
-                    await _firestoreService.updateSupplier(s);
-                  } else {
-                    await _firestoreService.addSupplier(s);
-                  }
-                  navigator.pop();
-                } catch (e) {
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
+            onPressed: submit,
             child: Text(isEdit ? 'Update' : 'Add'),
           ),
         ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/category.dart';
-import '../services/firestore_service.dart';
+import 'package:inventory_management_system/models/category.dart';
+import 'package:inventory_management_system/services/firestore_service.dart';
 
 class CategoryListScreen extends StatefulWidget {
   const CategoryListScreen({super.key});
@@ -143,42 +143,51 @@ class _CategoryListScreenState extends State<CategoryListScreen> {
   void _showCategoryDialog({Category? category}) {
     final bool isEdit = category != null;
     final nameController = TextEditingController(text: category?.name);
-    
+    final formKey = GlobalKey<FormState>();
+
+    void submit() async {
+      if (formKey.currentState!.validate()) {
+        final newCategory = Category(
+          id: category?.id ?? '',
+          name: nameController.text.trim(),
+        );
+        
+        final navigator = Navigator.of(context);
+        final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+        try {
+          if (isEdit) {
+            await _firestoreService.updateCategory(newCategory);
+          } else {
+            await _firestoreService.addCategory(newCategory);
+          }
+          if (navigator.canPop()) navigator.pop();
+        } catch (e) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(isEdit ? 'Edit Category' : 'Add Category'),
-        content: TextField(
-          controller: nameController,
-          decoration: const InputDecoration(labelText: 'Category Name'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Category Name'),
+            validator: (v) => v!.isEmpty ? 'Required' : null,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => submit(),
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              if (nameController.text.isNotEmpty) {
-                final newCategory = Category(
-                  id: category?.id ?? '',
-                  name: nameController.text,
-                );
-                
-                final navigator = Navigator.of(context);
-                final scaffoldMessenger = ScaffoldMessenger.of(context);
-
-                try {
-                  if (isEdit) {
-                    await _firestoreService.updateCategory(newCategory);
-                  } else {
-                    await _firestoreService.addCategory(newCategory);
-                  }
-                  navigator.pop();
-                } catch (e) {
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                  );
-                }
-              }
-            },
+            onPressed: submit,
             child: Text(isEdit ? 'Update' : 'Add'),
           ),
         ],
