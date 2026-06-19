@@ -1,131 +1,228 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/firestore_service.dart';
 import '../models/product.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:csv/csv.dart';
 
-class ReportsScreen extends StatelessWidget {
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
   @override
+  State<ReportsScreen> createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+
+  @override
   Widget build(BuildContext context) {
-    final FirestoreService firestoreService = FirestoreService();
     final double width = MediaQuery.of(context).size.width;
-    final bool isMobile = width < 700;
-    final bool isTablet = width >= 700 && width < 1200;
+    final bool isMobile = width < 600;
+    final bool isTablet = width >= 600 && width < 1024;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Analytics & Reports',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1E293B),
-                ),
-          ),
-          const SizedBox(height: 24),
-          _buildReportGrid(isMobile, isTablet),
-          const SizedBox(height: 32),
-          const Text(
-            'Inventory Value Summary',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-          ),
-          const SizedBox(height: 16),
-          StreamBuilder<List<Product>>(
-            stream: firestoreService.getProducts(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
-              
-              final products = snapshot.data ?? [];
-              double totalValue = 0;
-              for (var p in products) {
-                totalValue += (p.price * p.quantity);
-              }
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(isMobile ? 16.0 : 32.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(isMobile),
+            const SizedBox(height: 32),
+            _buildReportGrid(isMobile, isTablet),
+            const SizedBox(height: 40),
+            Text(
+              'Financial Overview',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 20),
+            StreamBuilder<List<Product>>(
+              stream: _firestoreService.getProducts(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
+                }
+                if (snapshot.hasError) {
+                  return _buildErrorCard(snapshot.error.toString());
+                }
+                
+                final products = snapshot.data ?? [];
+                double totalValue = 0;
+                int totalUnits = 0;
+                for (var p in products) {
+                  totalValue += (p.price * p.quantity);
+                  totalUnits += p.quantity;
+                }
 
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey.shade100, width: 1.5),
-                ),
-                child: Container(
+                return Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(32),
+                  padding: EdgeInsets.all(isMobile ? 24 : 40),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: Column(
                     children: [
-                      const Text('Estimated Inventory Value', style: TextStyle(color: Colors.grey, fontSize: 16)),
-                      const SizedBox(height: 8),
                       Text(
-                        // Updated to PHP Pesos
-                        NumberFormat.currency(symbol: '₱', decimalDigits: 2).format(totalValue),
-                        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Color(0xFF2563EB)),
+                        'Total Inventory Asset Value',
+                        style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 14, fontWeight: FontWeight.w500),
                       ),
-                      const SizedBox(height: 24),
-                      const Divider(),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 12),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          NumberFormat.currency(symbol: '₱', decimalDigits: 2).format(totalValue),
+                          style: GoogleFonts.inter(
+                            fontSize: isMobile ? 32 : 48,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF6366F1),
+                            letterSpacing: -1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      const Divider(color: Color(0xFFF1F5F9)),
+                      const SizedBox(height: 32),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildSmallStat('Total Items', products.length.toString()),
-                          _buildSmallStat('Stock Volume', products.fold(0, (sum, p) => sum + p.quantity).toString()),
+                          Expanded(
+                            child: _buildValueStat(
+                              'Product Types',
+                              products.length.toString(),
+                              Icons.inventory_2_outlined,
+                              const Color(0xFF6366F1),
+                            ),
+                          ),
+                          Container(height: 40, width: 1, color: const Color(0xFFF1F5F9)),
+                          Expanded(
+                            child: _buildValueStat(
+                              'Total Units',
+                              totalUnits.toString(),
+                              Icons.shopping_bag_outlined,
+                              const Color(0xFF10B981),
+                            ),
+                          ),
                         ],
                       )
                     ],
                   ),
-                ),
-              );
-            },
-          ),
-        ],
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSmallStat(String label, String value) {
+  Widget _buildHeader(bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Analytics & Reports',
+          style: GoogleFonts.inter(
+            fontSize: isMobile ? 24 : 28,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF1E293B),
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Detailed insights and performance metrics.',
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: const Color(0xFF64748B),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildValueStat(String label, String value, IconData icon, Color color) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 12),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+          ),
+        ),
+        Text(
+          label,
+          style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w500),
+        ),
       ],
     );
   }
 
   Widget _buildReportGrid(bool isMobile, bool isTablet) {
-    int crossAxisCount = isMobile ? 1 : (isTablet ? 2 : 3);
-    double aspectRatio = isMobile ? 3.5 : 2.0;
+    int crossAxisCount = 3;
+    double aspectRatio = 1.8;
+
+    if (isMobile) {
+      crossAxisCount = 1;
+      aspectRatio = 3.5;
+    } else if (isTablet) {
+      crossAxisCount = 2;
+      aspectRatio = 2.2;
+    }
 
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: crossAxisCount,
-      crossAxisSpacing: 20,
-      mainAxisSpacing: 20,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
       childAspectRatio: aspectRatio,
       children: [
         _buildReportCard(
-          title: 'Sales Report',
-          subtitle: 'Daily performance tracking',
-          icon: Icons.bar_chart_rounded,
-          color: Colors.blue,
+          title: 'Stock Movements',
+          subtitle: 'Full history log',
+          icon: Icons.swap_horizontal_circle_rounded,
+          color: const Color(0xFF10B981),
+          onTap: () => _showMovementsDialog(),
         ),
         _buildReportCard(
           title: 'Inventory Audit',
-          subtitle: 'Stock level consistency check',
-          icon: Icons.pie_chart_rounded,
-          color: Colors.orange,
+          subtitle: 'Detailed list',
+          icon: Icons.fact_check_rounded,
+          color: const Color(0xFFF59E0B),
+          onTap: () => _showAuditDialog(),
         ),
         _buildReportCard(
-          title: 'Activity Log',
-          subtitle: 'Detailed transaction history',
-          icon: Icons.history_rounded,
-          color: Colors.purple,
+          title: 'Export Data',
+          subtitle: 'Download CSV',
+          icon: Icons.download_rounded,
+          color: const Color(0xFF6366F1),
+          onTap: () => _exportData(),
         ),
       ],
     );
@@ -136,29 +233,30 @@ class ReportsScreen extends StatelessWidget {
     required String subtitle,
     required IconData icon,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade100, width: 1.5),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,19 +264,139 @@ class ReportsScreen extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15, color: const Color(0xFF1E293B)),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12),
                     ),
                   ],
                 ),
               ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 20),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showMovementsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Recent Movements'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _firestoreService.getTransactions(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final txs = snapshot.data!;
+              if (txs.isEmpty) return const Text('No movements recorded.');
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: txs.length,
+                itemBuilder: (context, index) {
+                  final tx = txs[index];
+                  final date = (tx['date'] as dynamic)?.toDate() ?? DateTime.now();
+                  return ListTile(
+                    title: Text(tx['productName'] ?? 'Product'),
+                    subtitle: Text('${tx['type']} • ${tx['quantity']} units • ${DateFormat('MMM dd').format(date)}'),
+                    trailing: Text('₱${(tx['totalValue'] ?? 0).toStringAsFixed(0)}'),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  void _showAuditDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Inventory Audit'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: StreamBuilder<List<Product>>(
+            stream: _firestoreService.getProducts(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+              final products = snapshot.data!;
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: products.length,
+                itemBuilder: (context, index) {
+                  final p = products[index];
+                  return ListTile(
+                    title: Text(p.name),
+                    subtitle: Text('Category: ${p.categoryId}'),
+                    trailing: Text('Stock: ${p.quantity}'),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final products = await _firestoreService.getProducts().first;
+      List<List<dynamic>> rows = [];
+      rows.add(["ID", "Name", "Category", "Price", "Quantity", "Created At"]);
+      
+      for (var p in products) {
+        rows.add([p.id, p.name, p.categoryId, p.price, p.quantity, p.createdAt?.toString() ?? '']);
+      }
+
+      String csv = const ListToCsvConverter().convert(rows);
+      final directory = await getApplicationDocumentsDirectory();
+      final path = "${directory.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.csv";
+      final file = File(path);
+      await file.writeAsString(csv);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Report exported to $path'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildErrorCard(String error) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFEE2E2)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444), size: 32),
+          const SizedBox(height: 12),
+          Text('Error loading financials', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF991B1B))),
+          Text(error, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C))),
+        ],
       ),
     );
   }

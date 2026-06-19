@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../services/auth_service.dart';
-import 'dashboard_screen.dart';
-import 'product_list_screen.dart';
-import 'category_list_screen.dart';
-import 'supplier_list_screen.dart';
-import 'stock_management_screen.dart';
-import 'reports_screen.dart';
+import 'package:inventory_management_system/services/auth_service.dart';
+import 'package:inventory_management_system/screens/dashboard_screen.dart';
+import 'package:inventory_management_system/screens/product_list_screen.dart';
+import 'package:inventory_management_system/screens/category_list_screen.dart';
+import 'package:inventory_management_system/screens/supplier_list_screen.dart';
+import 'package:inventory_management_system/screens/stock_management_screen.dart';
+import 'package:inventory_management_system/screens/reports_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -253,20 +253,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildUserProfile(User? user) {
     return Row(
       children: [
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              user?.displayName ?? user?.email?.split('@')[0] ?? 'Admin',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: const Color(0xFF0F172A)),
-            ),
-            Text(
-              'Store Manager',
-              style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
+        if (MediaQuery.of(context).size.width > 400)
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                user?.displayName ?? user?.email?.split('@')[0] ?? 'Admin',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: const Color(0xFF0F172A)),
+              ),
+              Text(
+                'Store Manager',
+                style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
         const SizedBox(width: 12),
         Container(
           padding: const EdgeInsets.all(2),

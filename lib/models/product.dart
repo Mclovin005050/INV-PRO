@@ -1,9 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Product {
   final String id;
   final String name;
   final String categoryId;
   final double price;
   int quantity;
+  final DateTime? createdAt;
 
   Product({
     required this.id,
@@ -11,6 +14,7 @@ class Product {
     required this.categoryId,
     required this.price,
     required this.quantity,
+    this.createdAt,
   });
 
   bool get isLowStock => quantity <= 10;
@@ -21,6 +25,7 @@ class Product {
       'categoryId': categoryId,
       'price': price,
       'quantity': quantity,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
     };
   }
 
@@ -30,7 +35,16 @@ class Product {
       name: map['name'] ?? '',
       categoryId: map['categoryId'] ?? '',
       price: (map['price'] ?? 0).toDouble(),
-      quantity: map['quantity'] ?? 0,
+      quantity: (map['quantity'] ?? 0).toInt(),
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Product && runtimeType == other.runtimeType && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
